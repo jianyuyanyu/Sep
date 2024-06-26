@@ -4,6 +4,7 @@
 [![Build Status](https://github.com/nietras/Sep/actions/workflows/dotnet.yml/badge.svg?branch=main)](https://github.com/nietras/Sep/actions/workflows/dotnet.yml)
 [![Super-Linter](https://github.com/nietras/Sep/actions/workflows/super-linter.yml/badge.svg)](https://github.com/marketplace/actions/super-linter)
 [![codecov](https://codecov.io/gh/nietras/Sep/branch/main/graph/badge.svg?token=WN56CR3X0D)](https://codecov.io/gh/nietras/Sep)
+[![CodeQL](https://github.com/nietras/Sep/workflows/CodeQL/badge.svg)](https://github.com/nietras/Sep/actions?query=workflow%3ACodeQL)
 [![Nuget](https://img.shields.io/nuget/v/Sep?color=purple)](https://www.nuget.org/packages/Sep/)
 [![Release](https://img.shields.io/github/v/release/nietras/Sep)](https://github.com/nietras/Sep/releases/)
 [![downloads](https://img.shields.io/nuget/dt/Sep)](https://www.nuget.org/packages/Sep)
@@ -125,7 +126,7 @@ is, using `Sep` for `Separator` and `Col` for `Column` to keep code succinct.
 |`Col` | Short for column, also called *field*. |
 |`Line` | Horizontal set of characters until a line ending; `\r\n`, `\r`, `\n`. |
 |`Index` | 0-based that is `RowIndex` will be 0 for first row (or the header if present). |
-|`Number` | 1-based that is `LineNumber` will be 1 for the first line (as in `notepad`). Given a row may span multiple lines a row can have a *From* line number and an *ToExcl* line number matching the C# range indexing syntax `[LineNumberFrom..LineNumberToExcl]`. |
+|`Number` | 1-based that is `LineNumber` will be 1 for the first line (as in `notepad`). Given a row may span multiple lines a row can have a *From* line number and a *ToExcl* line number matching the C# range indexing syntax `[LineNumberFrom..LineNumberToExcl]`. |
 
 ## Application Programming Interface (API)
 Besides being the succinct name of the library, `Sep` is both the main entry
@@ -1561,26 +1562,12 @@ namespace nietras.SeparatedValues
         public static nietras.SeparatedValues.SepWriterOptions Writer() { }
         public static nietras.SeparatedValues.SepWriterOptions Writer(System.Func<nietras.SeparatedValues.SepWriterOptions, nietras.SeparatedValues.SepWriterOptions> configure) { }
     }
-    public delegate nietras.SeparatedValues.SepToString SepCreateToString(nietras.SeparatedValues.SepHeader? maybeHeader, int colCount);
+    public delegate nietras.SeparatedValues.SepToString SepCreateToString(nietras.SeparatedValues.SepReaderHeader? maybeHeader, int colCount);
     public static class SepDefaults
     {
         public static System.StringComparer ColNameComparer { get; }
         public static System.Globalization.CultureInfo CultureInfo { get; }
         public static char Separator { get; }
-    }
-    public sealed class SepHeader
-    {
-        public SepHeader(string row, System.Collections.Generic.Dictionary<string, int> colNameToIndex) { }
-        public System.Collections.Generic.IReadOnlyList<string> ColNames { get; }
-        public bool IsEmpty { get; }
-        public static nietras.SeparatedValues.SepHeader Empty { get; }
-        public int IndexOf(string colName) { }
-        public int[] IndicesOf(System.Collections.Generic.IReadOnlyList<string> colNames) { }
-        public int[] IndicesOf(System.ReadOnlySpan<string> colNames) { }
-        public int[] IndicesOf(params string[] colNames) { }
-        public void IndicesOf(System.ReadOnlySpan<string> colNames, System.Span<int> colIndices) { }
-        public System.Collections.Generic.IReadOnlyList<string> NamesStartingWith(string prefix, System.StringComparison comparison = 4) { }
-        public override string ToString() { }
     }
     [System.Diagnostics.DebuggerDisplay("{DebuggerDisplay,nq}")]
     public sealed class SepReader : nietras.SeparatedValues.SepReaderState
@@ -1588,7 +1575,7 @@ namespace nietras.SeparatedValues
         public nietras.SeparatedValues.SepReader.Row Current { get; }
         public bool HasHeader { get; }
         public bool HasRows { get; }
-        public nietras.SeparatedValues.SepHeader Header { get; }
+        public nietras.SeparatedValues.SepReaderHeader Header { get; }
         public bool IsEmpty { get; }
         public nietras.SeparatedValues.SepSpec Spec { get; }
         public nietras.SeparatedValues.SepReader GetEnumerator() { }
@@ -1688,6 +1675,19 @@ namespace nietras.SeparatedValues
         public static nietras.SeparatedValues.SepReaderOptions Reader(this nietras.SeparatedValues.Sep? sep, System.Func<nietras.SeparatedValues.SepReaderOptions, nietras.SeparatedValues.SepReaderOptions> configure) { }
         public static nietras.SeparatedValues.SepReaderOptions Reader(this nietras.SeparatedValues.SepSpec spec, System.Func<nietras.SeparatedValues.SepReaderOptions, nietras.SeparatedValues.SepReaderOptions> configure) { }
     }
+    public sealed class SepReaderHeader
+    {
+        public System.Collections.Generic.IReadOnlyList<string> ColNames { get; }
+        public bool IsEmpty { get; }
+        public static nietras.SeparatedValues.SepReaderHeader Empty { get; }
+        public int IndexOf(string colName) { }
+        public int[] IndicesOf(System.Collections.Generic.IReadOnlyList<string> colNames) { }
+        public int[] IndicesOf(System.ReadOnlySpan<string> colNames) { }
+        public int[] IndicesOf(params string[] colNames) { }
+        public void IndicesOf(System.ReadOnlySpan<string> colNames, System.Span<int> colIndices) { }
+        public System.Collections.Generic.IReadOnlyList<string> NamesStartingWith(string prefix, System.StringComparison comparison = 4) { }
+        public override string ToString() { }
+    }
     public readonly struct SepReaderOptions : System.IEquatable<nietras.SeparatedValues.SepReaderOptions>
     {
         public SepReaderOptions() { }
@@ -1731,12 +1731,11 @@ namespace nietras.SeparatedValues
         public static nietras.SeparatedValues.SepCreateToString PoolPerColThreadSafe(int maximumStringLength = 32, int initialCapacity = 64, int maximumCapacity = 4096) { }
         public static nietras.SeparatedValues.SepCreateToString PoolPerColThreadSafeFixedCapacity(int maximumStringLength = 32, int capacity = 2048) { }
     }
-    public class SepWriter : System.IDisposable
+    public sealed class SepWriter : System.IDisposable
     {
-        public SepWriter(nietras.SeparatedValues.SepWriterOptions options, System.IO.TextWriter writer) { }
+        public nietras.SeparatedValues.SepWriterHeader Header { get; }
         public nietras.SeparatedValues.SepSpec Spec { get; }
         public void Dispose() { }
-        protected virtual void Dispose(bool disposing) { }
         public void Flush() { }
         public nietras.SeparatedValues.SepWriter.Row NewRow() { }
         public override string ToString() { }
@@ -1814,6 +1813,8 @@ namespace nietras.SeparatedValues
     {
         public static nietras.SeparatedValues.SepWriter To(this nietras.SeparatedValues.SepWriterOptions options, System.IO.Stream stream) { }
         public static nietras.SeparatedValues.SepWriter To(this nietras.SeparatedValues.SepWriterOptions options, System.IO.TextWriter writer) { }
+        public static nietras.SeparatedValues.SepWriter To(this nietras.SeparatedValues.SepWriterOptions options, System.IO.Stream stream, bool leaveOpen) { }
+        public static nietras.SeparatedValues.SepWriter To(this nietras.SeparatedValues.SepWriterOptions options, System.IO.TextWriter writer, bool leaveOpen) { }
         public static nietras.SeparatedValues.SepWriter ToFile(this nietras.SeparatedValues.SepWriterOptions options, string filePath) { }
         public static nietras.SeparatedValues.SepWriter ToText(this nietras.SeparatedValues.SepWriterOptions options) { }
         public static nietras.SeparatedValues.SepWriter ToText(this nietras.SeparatedValues.SepWriterOptions options, int capacity) { }
@@ -1821,6 +1822,16 @@ namespace nietras.SeparatedValues
         public static nietras.SeparatedValues.SepWriterOptions Writer(this nietras.SeparatedValues.SepSpec spec) { }
         public static nietras.SeparatedValues.SepWriterOptions Writer(this nietras.SeparatedValues.Sep sep, System.Func<nietras.SeparatedValues.SepWriterOptions, nietras.SeparatedValues.SepWriterOptions> configure) { }
         public static nietras.SeparatedValues.SepWriterOptions Writer(this nietras.SeparatedValues.SepSpec spec, System.Func<nietras.SeparatedValues.SepWriterOptions, nietras.SeparatedValues.SepWriterOptions> configure) { }
+    }
+    [System.Diagnostics.DebuggerDisplay("{DebuggerDisplay,nq}")]
+    [System.Diagnostics.DebuggerTypeProxy(typeof(nietras.SeparatedValues.SepWriterHeader.DebugView))]
+    public sealed class SepWriterHeader
+    {
+        public void Add(System.Collections.Generic.IReadOnlyList<string> colNames) { }
+        public void Add(System.ReadOnlySpan<string> colNames) { }
+        public void Add(string colName) { }
+        public void Add(string[] colNames) { }
+        public void Write() { }
     }
     public readonly struct SepWriterOptions : System.IEquatable<nietras.SeparatedValues.SepWriterOptions>
     {
